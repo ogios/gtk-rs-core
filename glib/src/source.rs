@@ -926,6 +926,31 @@ where
     }
 }
 
+pub fn unix_fd_add_full_local<F>(
+    fd: RawFd,
+    priority: Priority,
+    condition: IOCondition,
+    func: F,
+) -> SourceId
+where
+    F: FnMut(RawFd, IOCondition) -> ControlFlow + 'static,
+{
+    unsafe {
+        let context = MainContext::default();
+        let _acquire = context
+            .acquire()
+            .expect("default main context already acquired by another thread");
+        from_glib(ffi::g_unix_fd_add_full(
+            priority.into_glib(),
+            fd,
+            condition.into_glib(),
+            Some(trampoline_unix_fd_local::<F>),
+            into_raw_unix_fd_local(func),
+            Some(destroy_closure_unix_fd_local::<F>),
+        ))
+    }
+}
+
 // rustdoc-stripper-ignore-next
 /// The priority of sources
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
